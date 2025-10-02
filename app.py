@@ -3,19 +3,14 @@
 import logging
 
 import os
-import sys
 import tempfile
-from typing import List, Dict, Any
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from telegram.constants import ParseMode
 import PyPDF2
 from together import Together
 from dotenv import load_dotenv
-from contextlib import asynccontextmanager
-import json
-import asyncio
 
 class HRBot:
     def __init__(self):
@@ -84,7 +79,6 @@ class HRBot:
         message = {"role": "user", "content": prompt}
 
         result = self.llm.chat.completions.create(
-            # model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
             model="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
             messages=[message],
             max_tokens=2000
@@ -92,7 +86,7 @@ class HRBot:
 
         return message, result.choices[0].message.content
 
-    async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def start_command(self, update, context):
         self.logger.info("Handling /start command...")
         welcome_message = ("Добро пожаловать в отдел кадров!"
                            "\n\nДля начала отправьте резюме ваших кандидатов в формате PDF."
@@ -101,14 +95,14 @@ class HRBot:
                            "\n\nДля удаления сохраненных резюме и вакансии отправьте команду `/clear`.")
         await update.message.reply_text(welcome_message, parse_mode=ParseMode.MARKDOWN)
 
-    async def clear_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def clear_command(self, update, context):
         self.logger.info("Handling /clear command...")
         user_id = update.effective_user.id
         self.cv_storage[user_id] = []
         self.job_storage[user_id] = ""
         await update.message.reply_text("Резюме и описание вакансии удалены!")
 
-    async def reset_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def reset_command(self, update, context):
         self.logger.info("Handling /reset command...")
         user_id = update.effective_user.id
         self.cv_storage[user_id] = []
@@ -116,7 +110,7 @@ class HRBot:
         del self.cv_storage[user_id]
         await update.message.reply_text("Я как заново родился... Начнем сначала!")
 
-    async def analyze_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def analyze_command(self, update, context):
         self.logger.info("Handling /analyze command...")
         user_id = update.effective_user.id
 
@@ -140,13 +134,10 @@ class HRBot:
         self.chat_storage = create_or_append(self.chat_storage, user_id, message)
 
 
-    async def handle_document(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def handle_document(self, update, context):
         self.logger.info("Retrieving document...")
         user_id = update.effective_user.id
         document = update.message.document
-
-        # if user_id not in self.cv_storage or not self.cv_storage[user_id]:
-        #     self.cv_storage[user_id] = []
 
         if user_id in self.cv_storage and len(self.cv_storage[user_id]) >= 5:
             await update.message.reply_text("Извините, слишком много кандидатов. Ограничьтесь 5 резюме.")
@@ -176,7 +167,7 @@ class HRBot:
         self.cv_storage = create_or_append(self.cv_storage, user_id, text)
         await update.message.reply_text("Файл принят!")
 
-    async def handle_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def handle_text(self, update, context):
         self.logger.info("Reading text message...")
         user_id = update.effective_user.id
         text = update.message.text
@@ -187,8 +178,6 @@ class HRBot:
         else:
             message = {"role": "user", "content": text}
             messages = self.chat_storage[user_id]
-
-            # self.logger.warning(json.dumps(messages, indent=2))
 
             result = self.llm.chat.completions.create(
                 model="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
@@ -201,7 +190,7 @@ class HRBot:
             self.chat_storage = create_or_append(self.chat_storage, user_id, {"role": "assistant", "content": response})
 
 
-    async def fallback_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def fallback_handler(self, update, context):
         self.logger.info("Got unsupported update...")
         await update.message.reply_text(f"Такое мне больше не присылай!")
 
