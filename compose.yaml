@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: pg_isready --username=postgres
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      start_interval: 1s
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  vllm:
+    image: vllm/vllm-openai:v0.10.2
+    restart: unless-stopped
+    command: >
+      --host 0.0.0.0
+      --model meta-llama/Llama-3.3-70B-Instruct-Turbo-Free
+      --gpu-memory-utilization 0.75
+      --max-model-len 4096
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+
+  hrbot:
+    build: .
+    restart: unless-stopped
+    environment:
+      TELEGRAM_BOT_TOKEN: "YOUR_BOT_TOKEN_HERE"
+      TOGETHER_API_KEY: "YOUR_TOGETHER_API_KEY_HERE"
+
+volumes:
+  postgres_data:
